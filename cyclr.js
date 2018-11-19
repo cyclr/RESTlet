@@ -41,7 +41,32 @@ function createRecord(datain) {
     if (datain.hasOwnProperty(fieldname)) {
       if (fieldname != 'recordtype' && fieldname != 'id') {
         var value = datain[fieldname];
-        if (value && typeof value != 'object') {
+        if (value && typeof value == 'object') {
+          if (value.length == undefined) {
+            record.selectNewLineItem(fieldname);
+            for (var sublistfield in value) {
+              var sublistvalue = value[sublistfield];
+              //nlapiLogExecution('DEBUG', fieldname + '=' + sublistfield + '=' + sublistvalue);
+              record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
+            }
+            record.commitLineItem(fieldname);
+          } else {
+            for (var i = 0; i < value.length; i++) {
+              record.selectNewLineItem(fieldname);
+              for (var sublistfield in value[i]) {
+                var sublistvalue = value[i][sublistfield];
+                //nlapiLogExecution('DEBUG', fieldname + '=' + sublistfield + '=' + sublistvalue);
+                record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
+              }
+              record.commitLineItem(fieldname);
+            }
+          }
+        } else {
+          /**
+          * Populate fields
+          * sublists come in as objects that contain the line column values
+          **/
+          //nlapiLogExecution('DEBUG', fieldname + '=' + value);
           record.setFieldValue(fieldname, value);
         }
       }
