@@ -20,11 +20,13 @@ function getRecord(datain) {
 
   if(datain.page != void(0))
     page = datain.page;
-
-  for(var i = ((page - 1) * pageSize); i < Math.min((page * pageSize), ids.length); i++) {
-    result.push(nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId()));
+  
+  if(ids.length != void(0)) {
+    for(var i = ((page - 1) * pageSize); i < Math.min((page * pageSize), ids.length); i++) {
+      result.push(nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId()));
+    }
   }
-
+  
   return result;
 }
 
