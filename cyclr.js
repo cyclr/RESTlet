@@ -1,7 +1,3 @@
-function helloWorld(datain) {
-  return 'Greetings DemoUser from NetSuite RESTlet Land!';
-}
-
 function getRecord(datain) {
   if (datain.id != void(0))
     return nlapiLoadRecord(datain.recordtype, datain.id);
@@ -10,9 +6,9 @@ function getRecord(datain) {
   var pageSize = 10;
   var filters = null;
   var columns = null;
-  if(datain.field != void(0)) {
-    filters = [new nlobjSearchFilter(datain.field, null, datain.op, datain.value)];
-    columns = [new nlobjSearchColumn(datain.field)];
+  if(datain.filter_field_1 != void(0)) {
+    filters = buildFilters(datain);
+    columns = buildColumns(datain);
   }
 
   var ids = nlapiSearchRecord(datain.recordtype, null, filters, columns);
@@ -28,6 +24,39 @@ function getRecord(datain) {
   }
   
   return result;
+}
+
+function buildColumns(datain) {
+    var x = 1;
+    var columns = [];
+
+    var field = "filter_field_" + x;
+
+    while(datain[field] !== void(0)) {
+        columns.push(new nlobjSearchColumn(datain[field]));
+        x++;
+        field = "filter_field_" + x;
+    }
+    return columns;
+}
+
+function buildFilters(datain) {
+    var x = 1;
+    var filters = [];
+
+    var field = "filter_field_" + x;
+    var op = "filter_op_" + x;
+    var val = "filter_val_" + x;
+
+    while(datain[field] !== void(0)) {
+        filters.push(new nlobjSearchFilter(datain[field], null, datain[op], datain[val]));
+        x++;
+        field = "filter_field_" + x;
+        op = "filter_op_" + x;
+        val = "filter_val_" + x;
+    }
+     
+    return filters;
 }
 
 function createRecord(datain) {
@@ -48,7 +77,6 @@ function createRecord(datain) {
             record.selectNewLineItem(fieldname);
             for (var sublistfield in value) {
               var sublistvalue = value[sublistfield];
-              //nlapiLogExecution('DEBUG', fieldname + '=' + sublistfield + '=' + sublistvalue);
               record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
             }
             record.commitLineItem(fieldname);
@@ -57,7 +85,6 @@ function createRecord(datain) {
               record.selectNewLineItem(fieldname);
               for (var sublistfield in value[i]) {
                 var sublistvalue = value[i][sublistfield];
-                //nlapiLogExecution('DEBUG', fieldname + '=' + sublistfield + '=' + sublistvalue);
                 record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
               }
               record.commitLineItem(fieldname);
@@ -68,7 +95,6 @@ function createRecord(datain) {
           * Populate fields
           * sublists come in as objects that contain the line column values
           **/
-          //nlapiLogExecution('DEBUG', fieldname + '=' + value);
           record.setFieldValue(fieldname, value);
         }
       }
