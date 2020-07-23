@@ -53,8 +53,14 @@ function buildFilters(datain) {
     var op = "filter_op_" + x;
     var val = "filter_val_" + x;
 
+    var record = nlapiCreateRecord(datain.recordtype);
     while (datain[field] !== void (0)) {
-        filters.push(new nlobjSearchFilter(datain[field], null, datain[op], datain[val]));
+        var f = record.getField(datain[field]);
+        if (f && f.type === 'datetime' && datain[val])
+            datain[val] = new Date(datain[val]);
+
+        var filter = new nlobjSearchFilter(datain[field], null, datain[op], datain[val]);
+        filters.push(filter);
         x++;
         field = "filter_field_" + x;
         op = "filter_op_" + x;
