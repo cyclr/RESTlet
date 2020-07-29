@@ -56,8 +56,12 @@ function buildFilters(datain) {
     var record = nlapiCreateRecord(datain.recordtype);
     while (datain[field] !== void (0)) {
         var f = record.getField(datain[field]);
-        if (f && (f.type === 'datetime' || f.type === 'datetimetz') && datain[val])
-            datain[val] = new Date(datain[val]);
+        if (f && datain[val]) {
+            if (f.type === 'date')
+                datain[val] = nlapiDateToString(new Date(datain[val] + 'T08:00:00.000Z'), 'date');
+            else if (f.type === 'datetime' || f.type === 'datetimetz')
+                datain[val] = new Date(datain[val]);
+        }
 
         var filter = new nlobjSearchFilter(datain[field], null, datain[op], datain[val]);
         filters.push(filter);
