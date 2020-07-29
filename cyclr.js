@@ -56,7 +56,7 @@ function buildFilters(datain) {
     var record = nlapiCreateRecord(datain.recordtype);
     while (datain[field] !== void (0)) {
         var f = record.getField(datain[field]);
-        if (f && f.type === 'datetime' && datain[val])
+        if (f && (f.type === 'datetime' || f.type === 'datetimetz') && datain[val])
             datain[val] = new Date(datain[val]);
 
         var filter = new nlobjSearchFilter(datain[field], null, datain[op], datain[val]);
@@ -75,7 +75,7 @@ function transformRecord(data) {
 
     for (i = 0; i < fields.length; i++) {
         var field = data.getField(fields[i]);
-        if (field && field.type === 'datetime') {
+        if (field && (field.type === 'datetime' || field.type === 'datetimetz')) {
             var pacific = data.getDateTimeValue(fields[i], 'America/Los_Angeles');
             if (pacific) {
                 var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
@@ -92,7 +92,7 @@ function transformRecord(data) {
             for (var j = 0; j < lineItemFields.length; j++) {
                 for (var k = 1; k <= count; k++) {
                     var field = data.getLineItemField(lineItems[i], lineItemFields[j], k);
-                    if (field && field.type === 'datetime') {
+                    if (field && (field.type === 'datetime' || field.type === 'datetimetz')) {
                         var pacific = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
                         if (pacific) {
                             var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
