@@ -76,9 +76,9 @@ function transformRecord(data) {
     for (i = 0; i < fields.length; i++) {
         var field = data.getField(fields[i]);
         if (field && (field.type === 'datetime' || field.type === 'datetimetz')) {
-            var gmt = data.getDateTimeValue(fields[i], 'GMT');
-            if (gmt) {
-                var iso = nlapiStringToDate(gmt, 'datetimetz').toISOString();
+            var pacific = data.getDateTimeValue(fields[i], 'America/Los_Angeles');
+            if (pacific) {
+                var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
                 data.setFieldValue(fields[i], iso);
             }
         }
@@ -93,9 +93,9 @@ function transformRecord(data) {
                 for (var k = 1; k <= count; k++) {
                     var field = data.getLineItemField(lineItems[i], lineItemFields[j], k);
                     if (field && (field.type === 'datetime' || field.type === 'datetimetz')) {
-                        var gmt = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'GMT');
-                        if (gmt) {
-                            var iso = nlapiStringToDate(gmt, 'datetimetz').toISOString();
+                        var pacific = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
+                        if (pacific) {
+                            var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
                             data.setLineItemValue(lineItems[i], lineItemFields[j], k, iso);
                         }
                     }
