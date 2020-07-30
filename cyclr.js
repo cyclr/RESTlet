@@ -1,176 +1,211 @@
 function getRecord(datain) {
-    if (datain.id != void (0)) {
+    if (datain.id) {
         var record = nlapiLoadRecord(datain.recordtype, datain.id);
-        transformRecord(record);
+        record = transformRecord(record);
         return record;
     }
 
     var page = 1;
     var pageSize = 10;
+    if (datain.page)
+        page = datain.page;
+
     var filters = null;
     var columns = null;
-    if (datain.filter_field_1 != void (0)) {
+    if (datain.filter_field_1) {
         filters = buildFilters(datain);
         columns = buildColumns(datain);
     }
 
     var ids = nlapiSearchRecord(datain.recordtype, null, filters, columns);
+    if (!ids)
+        return [];
+
     var result = [];
-
-    if (datain.page != void (0))
-        page = datain.page;
-
-    if (ids != void (0)) {
-        for (var i = ((page - 1) * pageSize); i < Math.min((page * pageSize), ids.length); i++) {
-            var record = nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId());
-            transformRecord(record);
-            result.push(record);
-        }
+    for (var i = ((page - 1) * pageSize); i < Math.min((page * pageSize), ids.length); i++) {
+        var record = nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId());
+        record = transformRecord(record);
+        result.push(record);
     }
-
     return result;
 }
 
-function buildColumns(datain) {
-    var x = 1;
-    var columns = [];
-
-    var field = "filter_field_" + x;
-
-    while (datain[field] !== void (0)) {
-        columns.push(new nlobjSearchColumn(datain[field]));
-        x++;
-        field = "filter_field_" + x;
-    }
-    return columns;
-}
-
 function buildFilters(datain) {
-    var x = 1;
     var filters = [];
 
-    var field = "filter_field_" + x;
-    var op = "filter_op_" + x;
-    var val = "filter_val_" + x;
-
+    // Temporary record for getting field types
     var record = nlapiCreateRecord(datain.recordtype);
-    while (datain[field] !== void (0)) {
-        var f = record.getField(datain[field]);
-        if (f && datain[val]) {
-            if (f.type === 'date')
-                datain[val] = nlapiDateToString(new Date(datain[val] + 'T08:00:00.000Z'), 'date');
-            else if (f.type === 'datetime' || f.type === 'datetimetz')
-                datain[val] = new Date(datain[val]);
-        }
 
-        var filter = new nlobjSearchFilter(datain[field], null, datain[op], datain[val]);
+    for (var i = 1; ; i++) {
+        var field = "filter_field_" + i;
+        var op = "filter_op_" + i;
+        var val = "filter_val_" + i;
+        if (!datain[field])
+            break;
+
+        var filterValue = getRecordFieldValue(record, datain[field], datain[val]);
+        var filter = new nlobjSearchFilter(datain[field], null, datain[op], filterValue);
         filters.push(filter);
-        x++;
-        field = "filter_field_" + x;
-        op = "filter_op_" + x;
-        val = "filter_val_" + x;
     }
 
     return filters;
 }
 
-function transformRecord(data) {
-    var fields = data.getAllFields();
+function buildColumns(datain) {
+    var columns = [];
 
+    for (var i = 1; ; i++) {
+        var field = "filter_field_" + i;
+        if (!datain[field])
+            break;
+
+        var column = new nlobjSearchColumn(datain[field]);
+        columns.push(column);
+    }
+
+    return columns;
+}
+
+function getRecordFieldValue(record, fieldName, fieldValue) {
+    if (!fieldName || !fieldValue)
+        return fieldValue;
+
+    var field = record.getField(fieldName);
+    return getFieldValue(field, fieldValue);
+}
+
+function getFieldValue(field, fieldValue) {
+    if (!field || !fieldValue)
+        return fieldValue;
+
+    // Convert ISO date to account date
+    if (field.type === 'date')
+        return nlapiDateToString(new Date(fieldValue + 'T08:00:00.000Z'), 'date');
+
+    // Convert ISO date time to JS Date
+    if (field.type === 'datetime' || field.type === 'datetimetz')
+        return new Date(fieldValue);
+
+    return fieldValue;
+}
+
+function transformRecord(data) {
+    // Convert the record to an object so we can manipulate its values
+    var transformed = JSON.parse(JSON.stringify(data));
+
+    var fields = data.getAllFields();
     for (i = 0; i < fields.length; i++) {
         var field = data.getField(fields[i]);
-        if (field) {
-            if (field.type === 'date') {
-                var date = data.getDateTimeValue(fields[i]);
-                if (date) {
-                    var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
-                    data.setFieldValue(fields[i], iso);
-                }
-            }
-            else if (field.type === 'datetime' || field.type === 'datetimetz') {
-                var pacific = data.getDateTimeValue(fields[i], 'America/Los_Angeles');
-                if (pacific) {
-                    var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
-                    data.setFieldValue(fields[i], iso);
-                }
-            }
+        if (!field)
+            continue;
+
+        if (field.type === 'date') {
+            // Convert account date to ISO date
+            var date = data.getDateTimeValue(fields[i]);
+            if (!data)
+                continue;
+            var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
+            transformed[fields[i]] = iso;
+        }
+        else if (field.type === 'datetime' || field.type === 'datetimetz') {
+            // Convert account date time to ISO date time
+            var pacific = data.getDateTimeValue(fields[i], 'America/Los_Angeles');
+            if (!pacific)
+                continue;
+            var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
+            transformed[fields[i]] = iso;
         }
     }
 
     var lineItems = data.getAllLineItems();
     for (var i = 0; i < lineItems.length; i++) {
+        var transformedLineItem = transformed[lineItems[i]];
+        if (!Array.isArray(transformedLineItem) || transformedLineItem.length < 1)
+            continue;
+
         var lineItemFields = data.getAllLineItemFields(lineItems[i]);
-        var count = data.getLineItemCount(lineItems[i]);
-        if (lineItemFields && count) {
-            for (var j = 0; j < lineItemFields.length; j++) {
-                for (var k = 1; k <= count; k++) {
-                    var field = data.getLineItemField(lineItems[i], lineItemFields[j], k);
-                    if (field) {
-                        if (field.type === 'date') {
-                            var date = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
-                            if (date) {
-                                var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
-                                data.setLineItemValue(lineItems[i], lineItemFields[j], k, iso);
-                            }
-                        }
-                        else if (field.type === 'datetime' || field.type === 'datetimetz') {
-                            var pacific = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
-                            if (pacific) {
-                                var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
-                                data.setLineItemValue(lineItems[i], lineItemFields[j], k, iso);
-                            }
-                        }
-                    }
+        if (!lineItemFields)
+            continue;
+
+        for (var j = 0; j < lineItemFields.length; j++) {
+            var field = data.getLineItemField(lineItems[i], lineItemFields[j], 1);
+            if (!field)
+                continue;
+
+            if (field.type === 'date') {
+                for (var k = 1; k <= transformedLineItem.length; k++) {
+                    // Convert account date to ISO date
+                    var date = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
+                    if (!date)
+                        continue;
+                    var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
+                    transformedLineItem[k - 1][lineItemFields[j]] = iso;
+
+                }
+            }
+            else if (field.type === 'datetime' || field.type === 'datetimetz') {
+                for (var k = 1; k <= transformedLineItem.length; k++) {
+                    // Convert account date time to ISO date time
+                    var pacific = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
+                    if (!pacific)
+                        continue;
+                    var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
+                    transformedLineItem[k - 1][lineItemFields[j]] = iso;
                 }
             }
         }
     }
+
+    return transformed;
 }
 
 function createRecord(datain) {
     if (!datain.recordtype) {
-        var err = new Object();
-        err.status = "failed";
-        err.message = "missing recordtype";
-        return err;
+        return {
+            status: "failed",
+            message: "missing recordtype"
+        };
     }
 
     var record = nlapiCreateRecord(datain.recordtype);
     for (var fieldname in datain) {
-        if (datain.hasOwnProperty(fieldname)) {
-            if (fieldname != 'recordtype' && fieldname != 'id') {
-                var value = datain[fieldname];
-                if (value && typeof value == 'object') {
-                    if (value.length == undefined) {
-                        record.selectNewLineItem(fieldname);
-                        for (var sublistfield in value) {
-                            var sublistvalue = value[sublistfield];
-                            record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
-                        }
-                        record.commitLineItem(fieldname);
-                    } else {
-                        for (var i = 0; i < value.length; i++) {
-                            record.selectNewLineItem(fieldname);
-                            for (var sublistfield in value[i]) {
-                                var sublistvalue = value[i][sublistfield];
-                                record.setCurrentLineItemValue(fieldname, sublistfield, sublistvalue);
-                            }
-                            record.commitLineItem(fieldname);
-                        }
-                    }
-                } else {
-                    /**
-                    * Populate fields
-                    * sublists come in as objects that contain the line column values
-                    **/
-                    record.setFieldValue(fieldname, value);
-                }
-            }
+        if (!datain.hasOwnProperty(fieldname) ||
+            fieldname === 'recordtype' || fieldname === 'id')
+            continue;
+
+        var fieldValue = datain[fieldname];
+        if (!fieldValue)
+            continue;
+
+        /**
+        * Populate fields
+        * sublists come in as objects that contain the line column values
+        **/
+        if (Array.isArray(fieldValue)) {
+            for (var i = 0; i < fieldValue.length; i++)
+                createLineItem(record, fieldname, fieldValue[i])
+        }
+        else if (typeof fieldValue == 'object')
+            createLineItem(record, fieldname, fieldValue)
+        else {
+            fieldValue = getRecordFieldValue(record, fieldname, fieldValue);
+            record.setFieldValue(fieldname, fieldValue);
         }
     }
 
     var recordId = nlapiSubmitRecord(record);
     return nlapiLoadRecord(datain.recordtype, recordId);
+}
+
+function createLineItem(record, fieldname, fieldValue) {
+    record.selectNewLineItem(fieldname);
+    for (var sublistField in fieldValue) {
+        var sublistValue = fieldValue[sublistField];
+        var field = record.getLineItemField(fieldname, sublistField, 1);
+        sublistValue = getFieldValue(field, sublistValue);
+        record.setCurrentLineItemValue(fieldname, sublistField, sublistValue);
+    }
+    record.commitLineItem(fieldname);
 }
 
 function deleteRecord(datain) {
@@ -180,14 +215,16 @@ function deleteRecord(datain) {
 function updateRecord(datain) {
     var record = nlapiLoadRecord(datain.recordtype, datain.id);
     for (var fieldname in datain) {
-        if (datain.hasOwnProperty(fieldname)) {
-            if (fieldname != 'recordtype' && fieldname != 'id') {
-                var value = datain[fieldname];
-                if (value && typeof value != 'object') {
-                    record.setFieldValue(fieldname, value);
-                }
-            }
-        }
+        if (!datain.hasOwnProperty(fieldname) ||
+            fieldname === 'recordtype' || fieldname === 'id')
+            continue;
+
+        var fieldValue = datain[fieldname];
+        if (!fieldValue || typeof fieldValue === 'object')
+            continue;
+
+        fieldValue = getRecordFieldValue(record, fieldname, fieldValue);
+        record.setFieldValue(fieldname, fieldValue);
     }
 
     nlapiSubmitRecord(record);
