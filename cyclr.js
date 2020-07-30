@@ -89,27 +89,27 @@ function getFieldValue(field, fieldValue) {
     return fieldValue;
 }
 
-function transformRecord(data) {
+function transformRecord(record) {
     // Convert the record to an object so we can manipulate its values
-    var transformed = JSON.parse(JSON.stringify(data));
+    var transformed = JSON.parse(JSON.stringify(record));
 
-    var fields = data.getAllFields();
+    var fields = record.getAllFields();
     for (i = 0; i < fields.length; i++) {
-        var field = data.getField(fields[i]);
+        var field = record.getField(fields[i]);
         if (!field)
             continue;
 
         if (field.type === 'date') {
             // Convert account date to ISO date
-            var date = data.getDateTimeValue(fields[i]);
-            if (!data)
+            var date = record.getDateTimeValue(fields[i]);
+            if (!date)
                 continue;
             var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
             transformed[fields[i]] = iso;
         }
         else if (field.type === 'datetime' || field.type === 'datetimetz') {
             // Convert account date time to ISO date time
-            var pacific = data.getDateTimeValue(fields[i], 'America/Los_Angeles');
+            var pacific = record.getDateTimeValue(fields[i], 'America/Los_Angeles');
             if (!pacific)
                 continue;
             var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
@@ -117,25 +117,25 @@ function transformRecord(data) {
         }
     }
 
-    var lineItems = data.getAllLineItems();
+    var lineItems = record.getAllLineItems();
     for (var i = 0; i < lineItems.length; i++) {
         var transformedLineItem = transformed[lineItems[i]];
         if (!Array.isArray(transformedLineItem) || transformedLineItem.length < 1)
             continue;
 
-        var lineItemFields = data.getAllLineItemFields(lineItems[i]);
+        var lineItemFields = record.getAllLineItemFields(lineItems[i]);
         if (!lineItemFields)
             continue;
 
         for (var j = 0; j < lineItemFields.length; j++) {
-            var field = data.getLineItemField(lineItems[i], lineItemFields[j], 1);
+            var field = record.getLineItemField(lineItems[i], lineItemFields[j], 1);
             if (!field)
                 continue;
 
             if (field.type === 'date') {
                 for (var k = 1; k <= transformedLineItem.length; k++) {
                     // Convert account date to ISO date
-                    var date = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
+                    var date = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
                     if (!date)
                         continue;
                     var iso = nlapiStringToDate(date).toISOString().substring(0, 10);
@@ -146,7 +146,7 @@ function transformRecord(data) {
             else if (field.type === 'datetime' || field.type === 'datetimetz') {
                 for (var k = 1; k <= transformedLineItem.length; k++) {
                     // Convert account date time to ISO date time
-                    var pacific = data.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
+                    var pacific = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
                     if (!pacific)
                         continue;
                     var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
