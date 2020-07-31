@@ -40,25 +40,7 @@ function getRecord(datain) {
 // POST function.
 function createRecord(datain) {
     var record = nlapiCreateRecord(datain.recordtype);
-    var lineItems = record.getAllLineItems();
-
-    for (var fieldName in datain) {
-        if (!datain.hasOwnProperty(fieldName) ||
-            fieldName === 'recordtype' || fieldName === 'id')
-            continue;
-
-        var fieldValue = datain[fieldName];
-
-        if (lineItems.includes(fieldName)) {
-            createSublists(record, fieldName, fieldValue);
-            continue;
-        }
-
-        setRecordFieldValue(record, fieldName, fieldValue);
-    }
-
-    var recordId = nlapiSubmitRecord(record);
-    return nlapiLoadRecord(datain.recordtype, recordId);
+    return setRecord(record, datain);
 }
 
 // DELETE function.
@@ -69,32 +51,7 @@ function deleteRecord(datain) {
 // PUT function.
 function updateRecord(datain) {
     var record = nlapiLoadRecord(datain.recordtype, datain.id);
-    var lineItems = record.getAllLineItems();
-
-    for (var fieldName in datain) {
-        if (!datain.hasOwnProperty(fieldName) ||
-            fieldName === 'recordtype' || fieldName === 'id')
-            continue;
-
-        var fieldValue = datain[fieldName];
-
-        if (lineItems.includes(fieldName)) {
-            // Remove all sublists first.
-            var count = record.getLineItemCount(fieldName);
-            for (var i = 1; i <= count; i++) {
-                record.removeLineItem(fieldName, i);
-            }
-
-            // Add new sublists.
-            createSublists(record, fieldName, fieldValue);
-            continue;
-        }
-
-        setRecordFieldValue(record, fieldName,);
-    }
-
-    nlapiSubmitRecord(record);
-    return nlapiLoadRecord(datain.recordtype, datain.id);
+    return setRecord(record, datain);
 }
 
 // Builds search columns.
@@ -231,6 +188,36 @@ function transformRecord(record) {
     return transformed;
 }
 
+// Sets record fields from data in.
+function setRecord(record, datain) {
+    var lineItems = record.getAllLineItems();
+
+    for (var fieldName in datain) {
+        if (!datain.hasOwnProperty(fieldName) ||
+            fieldName === 'recordtype' || fieldName === 'id')
+            continue;
+
+        var fieldValue = datain[fieldName];
+
+        if (lineItems.indexOf(fieldName) > -1) {
+            // Remove all sublists first.
+            var count = record.getLineItemCount(fieldName);
+            for (var i = 1; i <= count; i++) {
+                record.removeLineItem(fieldName, i);
+            }
+
+            // Add new sublists.
+            createSublists(record, fieldName, fieldValue);
+            continue;
+        }
+
+        setRecordFieldValue(record, fieldName, fieldValue);
+    }
+
+    var recordId = nlapiSubmitRecord(record);
+    return nlapiLoadRecord(datain.recordtype, recordId);
+}
+
 // Creates sublists in the record.
 function createSublists(record, sublistName, sublistFields) {
     if (!Array.isArray(sublistFields))
@@ -255,9 +242,9 @@ function createSublist(record, sublistName, sublistFields) {
 
         if (field.type === 'select') {
             if (sublistValue.internalid != null)
-                record.setCurrentLineItemValue(sublistName, sublistField, sublistValue);
+                record.setCurrentLineItemValue(sublistName, sublistField, sublistValue.internalid);
             else if (sublistValue.name != null)
-                record.setCurrentLineItemText(sublistName, sublistField, sublistValue);
+                record.setCurrentLineItemText(sublistName, sublistField, sublistValue.name);
             continue;
         }
 
