@@ -94,7 +94,7 @@ function buildFilters(datain) {
 
 // Gets field value in correct field format from the record.
 function getRecordFieldValue(record, fieldName, fieldValue) {
-    if (!record || !fieldName || !fieldValue)
+    if (!record || !fieldName)
         return fieldValue;
 
     var field = record.getField(fieldName);
@@ -103,7 +103,7 @@ function getRecordFieldValue(record, fieldName, fieldValue) {
 
 // Gets field value in correct field format.
 function getFieldValue(field, fieldValue) {
-    if (!field || !fieldValue)
+    if (!field)
         return fieldValue;
 
     // Convert ISO date to account date.
@@ -114,10 +114,14 @@ function getFieldValue(field, fieldValue) {
     if (field.type === 'datetime' || field.type === 'datetimetz')
         return new Date(fieldValue);
 
+    // Convert checkbox boolean to T/F
+    if (field.type === 'checkbox')
+        return fieldValue ? 'T' : 'F';
+
     return fieldValue;
 }
 
-// Normalises the record.
+// Normalizes the record.
 function transformRecord(record) {
     // Convert the record to an object so we can manipulate its values.
     var transformed = JSON.parse(JSON.stringify(record));
@@ -202,7 +206,7 @@ function setRecord(record, datain) {
         if (lineItems.indexOf(fieldName) > -1) {
             // Remove all sublists first.
             var count = record.getLineItemCount(fieldName);
-            for (var i = 1; i <= count; i++) {
+            for (var i = count; i >= 1; i--) {
                 record.removeLineItem(fieldName, i);
             }
 
