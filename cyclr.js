@@ -1,18 +1,25 @@
+// If set to true, error email notifications with error details are suppressed after script execution.
+const SUPPRESS_NOTIFICATION = false;
+
+// Number of records to get for each page.
+// Warning: this must be the same as the page size set in the NetSuite connector.
+const PAGE_SIZE = 10;
+
+// GET function.
 function getRecord(datain) {
-    if (datain.id) {
+    if (datain.id != null) {
         var record = nlapiLoadRecord(datain.recordtype, datain.id);
-        record = transformRecord(record);
-        return record;
+        var transformed = transformRecord(record);
+        return transformed;
     }
 
     var page = 1;
-    var pageSize = 10;
-    if (datain.page)
+    if (datain.page != null)
         page = datain.page;
 
     var filters = null;
     var columns = null;
-    if (datain.filter_field_1) {
+    if (datain.filter_field_1 != null) {
         filters = buildFilters(datain);
         columns = buildColumns(datain);
     }
@@ -22,18 +29,95 @@ function getRecord(datain) {
         return [];
 
     var result = [];
-    for (var i = ((page - 1) * pageSize); i < Math.min((page * pageSize), ids.length); i++) {
+    for (var i = ((page - 1) * PAGE_SIZE); i < Math.min((page * PAGE_SIZE), ids.length); i++) {
         var record = nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId());
-        record = transformRecord(record);
-        result.push(record);
+        transformed = transformRecord(record);
+        result.push(transformed);
     }
     return result;
 }
 
+// POST function.
+function createRecord(datain) {
+    var record = nlapiCreateRecord(datain.recordtype);
+    var lineItems = record.getAllLineItems();
+
+    for (var fieldName in datain) {
+        if (!datain.hasOwnProperty(fieldName) ||
+            fieldName === 'recordtype' || fieldName === 'id')
+            continue;
+
+        var fieldValue = datain[fieldName];
+
+        if (lineItems.includes(fieldName)) {
+            createSublists(record, fieldName, fieldValue);
+            continue;
+        }
+
+        setRecordFieldValue(record, fieldName, fieldValue);
+    }
+
+    var recordId = nlapiSubmitRecord(record);
+    return nlapiLoadRecord(datain.recordtype, recordId);
+}
+
+// DELETE function.
+function deleteRecord(datain) {
+    nlapiDeleteRecord(datain.recordtype, datain.id);
+}
+
+// PUT function.
+function updateRecord(datain) {
+    var record = nlapiLoadRecord(datain.recordtype, datain.id);
+    var lineItems = record.getAllLineItems();
+
+    for (var fieldName in datain) {
+        if (!datain.hasOwnProperty(fieldName) ||
+            fieldName === 'recordtype' || fieldName === 'id')
+            continue;
+
+        var fieldValue = datain[fieldName];
+
+        if (lineItems.includes(fieldName)) {
+            // Remove all sublists first.
+            var count = record.getLineItemCount(fieldName);
+            for (var i = 1; i <= count; i++) {
+                record.removeLineItem(fieldName, i);
+            }
+
+            // Add new sublists.
+            createSublists(record, fieldName, fieldValue);
+            continue;
+        }
+
+        setRecordFieldValue(record, fieldName,);
+    }
+
+    nlapiSubmitRecord(record);
+    return nlapiLoadRecord(datain.recordtype, datain.id);
+}
+
+// Builds search columns.
+function buildColumns(datain) {
+    var columns = [];
+
+    for (var i = 1; ; i++) {
+        var field = "filter_field_" + i;
+        if (!datain[field])
+            break;
+
+        var column = new nlobjSearchColumn(datain[field]);
+        columns.push(column);
+    }
+
+    return columns;
+}
+
+// Builds search filters.
 function buildFilters(datain) {
     var filters = [];
 
-    // Temporary record for getting field types
+    // Temporary record used for getting field types.
     var record = nlapiCreateRecord(datain.recordtype);
 
     for (var i = 1; ; i++) {
@@ -51,48 +135,37 @@ function buildFilters(datain) {
     return filters;
 }
 
-function buildColumns(datain) {
-    var columns = [];
-
-    for (var i = 1; ; i++) {
-        var field = "filter_field_" + i;
-        if (!datain[field])
-            break;
-
-        var column = new nlobjSearchColumn(datain[field]);
-        columns.push(column);
-    }
-
-    return columns;
-}
-
+// Gets field value in correct field format from the record.
 function getRecordFieldValue(record, fieldName, fieldValue) {
-    if (!fieldName || !fieldValue)
+    if (!record || !fieldName || !fieldValue)
         return fieldValue;
 
     var field = record.getField(fieldName);
     return getFieldValue(field, fieldValue);
 }
 
+// Gets field value in correct field format.
 function getFieldValue(field, fieldValue) {
     if (!field || !fieldValue)
         return fieldValue;
 
-    // Convert ISO date to account date
+    // Convert ISO date to account date.
     if (field.type === 'date')
         return nlapiDateToString(new Date(fieldValue + 'T08:00:00.000Z'), 'date');
 
-    // Convert ISO date time to JS Date
+    // Convert ISO date time to JS Date.
     if (field.type === 'datetime' || field.type === 'datetimetz')
         return new Date(fieldValue);
 
     return fieldValue;
 }
 
+// Normalises the record.
 function transformRecord(record) {
-    // Convert the record to an object so we can manipulate its values
+    // Convert the record to an object so we can manipulate its values.
     var transformed = JSON.parse(JSON.stringify(record));
 
+    // Transform fields.
     var fields = record.getAllFields();
     for (i = 0; i < fields.length; i++) {
         var field = record.getField(fields[i]);
@@ -100,7 +173,7 @@ function transformRecord(record) {
             continue;
 
         if (field.type === 'date') {
-            // Convert account date to ISO date
+            // Convert account date to ISO date.
             var date = record.getDateTimeValue(fields[i]);
             if (!date)
                 continue;
@@ -108,7 +181,7 @@ function transformRecord(record) {
             transformed[fields[i]] = iso;
         }
         else if (field.type === 'datetime' || field.type === 'datetimetz') {
-            // Convert account date time to ISO date time
+            // Convert account date time to ISO date time.
             var pacific = record.getDateTimeValue(fields[i], 'America/Los_Angeles');
             if (!pacific)
                 continue;
@@ -117,6 +190,7 @@ function transformRecord(record) {
         }
     }
 
+    // Transform sublists.
     var lineItems = record.getAllLineItems();
     for (var i = 0; i < lineItems.length; i++) {
         var transformedLineItem = transformed[lineItems[i]];
@@ -124,9 +198,6 @@ function transformRecord(record) {
             continue;
 
         var lineItemFields = record.getAllLineItemFields(lineItems[i]);
-        if (!lineItemFields)
-            continue;
-
         for (var j = 0; j < lineItemFields.length; j++) {
             var field = record.getLineItemField(lineItems[i], lineItemFields[j], 1);
             if (!field)
@@ -134,7 +205,7 @@ function transformRecord(record) {
 
             if (field.type === 'date') {
                 for (var k = 1; k <= transformedLineItem.length; k++) {
-                    // Convert account date to ISO date
+                    // Convert account date to ISO date.
                     var date = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
                     if (!date)
                         continue;
@@ -145,8 +216,9 @@ function transformRecord(record) {
             }
             else if (field.type === 'datetime' || field.type === 'datetimetz') {
                 for (var k = 1; k <= transformedLineItem.length; k++) {
-                    // Convert account date time to ISO date time
-                    var pacific = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k, 'America/Los_Angeles');
+                    // Convert account date time to ISO date time.
+                    var pacific = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k,
+                        'America/Los_Angeles');
                     if (!pacific)
                         continue;
                     var iso = nlapiStringToDate(pacific, 'datetimetz').toISOString();
@@ -159,74 +231,109 @@ function transformRecord(record) {
     return transformed;
 }
 
-function createRecord(datain) {
-    if (!datain.recordtype) {
-        return {
-            status: "failed",
-            message: "missing recordtype"
-        };
-    }
+// Creates sublists in the record.
+function createSublists(record, sublistName, sublistFields) {
+    if (!Array.isArray(sublistFields))
+        sublistFields = [sublistFields];
 
-    var record = nlapiCreateRecord(datain.recordtype);
-    for (var fieldname in datain) {
-        if (!datain.hasOwnProperty(fieldname) ||
-            fieldname === 'recordtype' || fieldname === 'id')
-            continue;
-
-        var fieldValue = datain[fieldname];
-        if (!fieldValue)
-            continue;
-
-        /**
-        * Populate fields
-        * sublists come in as objects that contain the line column values
-        **/
-        if (Array.isArray(fieldValue)) {
-            for (var i = 0; i < fieldValue.length; i++)
-                createLineItem(record, fieldname, fieldValue[i])
-        }
-        else if (typeof fieldValue == 'object')
-            createLineItem(record, fieldname, fieldValue)
-        else {
-            fieldValue = getRecordFieldValue(record, fieldname, fieldValue);
-            record.setFieldValue(fieldname, fieldValue);
-        }
-    }
-
-    var recordId = nlapiSubmitRecord(record);
-    return nlapiLoadRecord(datain.recordtype, recordId);
+    for (var i = 0; i < sublistFields.length; i++)
+        createSublist(record, sublistName, sublistFields[i]);
 }
 
-function createLineItem(record, fieldname, fieldValue) {
-    record.selectNewLineItem(fieldname);
-    for (var sublistField in fieldValue) {
-        var sublistValue = fieldValue[sublistField];
-        var field = record.getLineItemField(fieldname, sublistField, 1);
+// Creates a sublist in the record.
+function createSublist(record, sublistName, sublistFields) {
+    record.selectNewLineItem(sublistName);
+
+    for (var sublistField in sublistFields) {
+        var sublistValue = sublistFields[sublistField];
+        var field = record.getLineItemField(sublistName, sublistField, 1);
+        if (!field) {
+            throw nlapiCreateError('CYCLR_INVALID_SUBLIST_FIELD',
+                'Sublist name: ' + sublistName + '\tField name: ' + sublistField,
+                SUPPRESS_NOTIFICATION);
+        }
+
+        if (field.type === 'select') {
+            if (sublistValue.internalid != null)
+                record.setCurrentLineItemValue(sublistName, sublistField, sublistValue);
+            else if (sublistValue.name != null)
+                record.setCurrentLineItemText(sublistName, sublistField, sublistValue);
+            continue;
+        }
+
+        if (field.type === 'multiselect') {
+            if (!Array.isArray(sublistValue))
+                sublistValue = [sublistValue];
+
+            if (sublistValue.length < 1)
+                continue;
+
+            if (sublistValue[0].internalid != null) {
+                sublistValue = sublistValue.map(function (v) {
+                    return v.internalid;
+                });
+                record.setCurrentLineItemValues(sublistName, sublistField, sublistValue);
+            }
+            else if (sublistValue[0].name != null) {
+                // SuiteScript doesn't have setCurrentLineItemTexts.
+                // Need to convert names to internal IDs.
+                sublistValue = sublistValue.map(function (v) {
+                    var options = field.getSelectOptions(v.name, 'is');
+                    return options.length < 1 ? null : options[0];
+                }).filter(function (v) {
+                    return v != null;
+                });
+                record.setCurrentLineItemValues(sublistName, sublistField, sublistValue);
+            }
+            continue;
+        }
+
         sublistValue = getFieldValue(field, sublistValue);
-        record.setCurrentLineItemValue(fieldname, sublistField, sublistValue);
-    }
-    record.commitLineItem(fieldname);
-}
-
-function deleteRecord(datain) {
-    nlapiDeleteRecord(datain.recordtype, datain.id);
-}
-
-function updateRecord(datain) {
-    var record = nlapiLoadRecord(datain.recordtype, datain.id);
-    for (var fieldname in datain) {
-        if (!datain.hasOwnProperty(fieldname) ||
-            fieldname === 'recordtype' || fieldname === 'id')
-            continue;
-
-        var fieldValue = datain[fieldname];
-        if (!fieldValue || typeof fieldValue === 'object')
-            continue;
-
-        fieldValue = getRecordFieldValue(record, fieldname, fieldValue);
-        record.setFieldValue(fieldname, fieldValue);
+        record.setCurrentLineItemValue(sublistName, sublistField, sublistValue);
     }
 
-    nlapiSubmitRecord(record);
-    return nlapiLoadRecord(datain.recordtype, datain.id);
+    record.commitLineItem(sublistName);
+}
+
+// Sets field value in the record.
+function setRecordFieldValue(record, fieldName, fieldValue) {
+    var field = record.getField(fieldName);
+    if (!field) {
+        throw nlapiCreateError('CYCLR_INVALID_FIELD',
+            'Field name: ' + fieldName,
+            SUPPRESS_NOTIFICATION);
+    }
+
+    if (field.type === 'select') {
+        if (fieldValue.internalid != null)
+            record.setFieldValue(fieldName, fieldValue.internalid);
+        else if (fieldValue.name != null)
+            record.setFieldText(fieldName, fieldValue.name);
+        return;
+    }
+
+    if (field.type === 'multiselect') {
+        if (!Array.isArray(fieldValue))
+            fieldValue = [fieldValue];
+
+        if (fieldValue.length < 1)
+            return;
+
+        if (fieldValue[0].internalid != null) {
+            fieldValue = fieldValue.map(function (v) {
+                return v.internalid;
+            });
+            record.setFieldValues(fieldName, fieldValue);
+        }
+        else if (fieldValue[0].name != null) {
+            fieldValue = fieldValue.map(function (v) {
+                return v.name;
+            });
+            record.setFieldTexts(fieldName, fieldValue);
+        }
+        return;
+    }
+
+    var transformed = getRecordFieldValue(record, fieldName, fieldValue);
+    record.setFieldValue(fieldName, transformed);
 }
