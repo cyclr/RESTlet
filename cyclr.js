@@ -204,6 +204,12 @@ function setRecord(record, datain) {
         var fieldValue = datain[fieldName];
 
         if (lineItems.indexOf(fieldName) > -1) {
+            // Update the subscriptions
+            if (fieldName === 'subscriptions') {
+                setSubscriptions(record, datain);
+                continue; // Move on to next field.
+            }
+
             // Remove all sublists first.
             var count = record.getLineItemCount(fieldName);
             for (var i = count; i >= 1; i--) {
@@ -327,4 +333,53 @@ function setRecordFieldValue(record, fieldName, fieldValue) {
 
     var transformed = getRecordFieldValue(record, fieldName, fieldValue);
     record.setFieldValue(fieldName, transformed);
+}
+
+function setSubscriptions(record, datain) {
+    const subscriptionsFieldName = 'subscriptions';
+    var count = record.getLineItemCount(subscriptionsFieldName);
+    if (count == 0)
+        return; // No subscriptions to set.
+
+    // Get the subscription names/internal ids.
+    var subscriptionNameMap = JSON.parse(JSON.stringify(record))[subscriptionsFieldName].map(function(i) { return i.subscription });
+
+    for (var i = 1; i <= count; i++) {
+        var subscriptionId = record.getLineItemValue(subscriptionsFieldName, 'subscription', i);
+        
+        // Find the subscription object.
+        var subscription = null;
+        for (var c = 0; c < subscriptionNameMap.length; c++) {
+            if (subscriptionNameMap[c].internalid === subscriptionId) {
+                subscription = subscriptionNameMap[c];
+                break;
+            }
+        }
+
+        if (subscription == null)
+            continue;
+            
+        // Find the datain that matches the subscription.
+        var datainSubscription = null;
+        for (var c = 0; c < datain.subscriptions.length; c++) {
+            // Find the subscription by ID or name, if ID provided name will be ignored.
+            if (datain.subscriptions[c].id) {
+                if (datain.subscriptions[c].id === subscription.internalid)
+                    datainSubscription = datain.subscriptions[c];
+                    break;
+            }
+            else if (datain.subscriptions[c].name === subscription.name)
+            {
+                datainSubscription = datain.subscriptions[c];
+                break;
+            }
+        }
+
+        var valueToSet = null;
+        if (datainSubscription == null)
+            valueToSet = 'F'; // Subscription not provided in update.
+        else
+            valueToSet = datainSubscription.subscribed ? 'T' : 'F';
+        record.setLineItemValue(subscriptionsFieldName, 'subscribed', i, valueToSet);
+    }
 }
