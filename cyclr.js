@@ -5,6 +5,9 @@ const SUPPRESS_NOTIFICATION = false;
 // Warning: this must be the same as the page size set in the NetSuite connector.
 const PAGE_SIZE = 10;
 
+// Field name for subscriptions.
+const subscriptionsFieldName = 'subscriptions';
+
 // GET function.
 function getRecord(datain) {
     if (datain.id != null) {
@@ -205,7 +208,7 @@ function setRecord(record, datain) {
 
         if (lineItems.indexOf(fieldName) > -1) {
             // Update the subscriptions
-            if (fieldName === 'subscriptions') {
+            if (fieldName === subscriptionsFieldName) {
                 setSubscriptions(record, datain);
                 continue; // Move on to next field.
             }
@@ -336,7 +339,6 @@ function setRecordFieldValue(record, fieldName, fieldValue) {
 }
 
 function setSubscriptions(record, datain) {
-    const subscriptionsFieldName = 'subscriptions';
     var count = record.getLineItemCount(subscriptionsFieldName);
     if (count == 0)
         return; // No subscriptions to set.
@@ -363,12 +365,13 @@ function setSubscriptions(record, datain) {
         var datainSubscription = null;
         for (var c = 0; c < datain.subscriptions.length; c++) {
             // Find the subscription by ID or name, if ID provided name will be ignored.
-            if (datain.subscriptions[c].id) {
-                if (datain.subscriptions[c].id === subscription.internalid)
+            if (datain.subscriptions[c].subscription.internalid) {
+                if (datain.subscriptions[c].subscription.internalid == subscription.internalid) {
                     datainSubscription = datain.subscriptions[c];
                     break;
+                }
             }
-            else if (datain.subscriptions[c].name === subscription.name)
+            else if (datain.subscriptions[c].subscription.name === subscription.name)
             {
                 datainSubscription = datain.subscriptions[c];
                 break;
