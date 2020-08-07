@@ -207,7 +207,7 @@ function setRecord(record, datain) {
         var fieldValue = datain[fieldName];
 
         if (lineItems.indexOf(fieldName) > -1) {
-            // Update the subscriptions
+            // Update the subscriptions.
             if (fieldName === subscriptionsFieldName) {
                 setSubscriptions(record, datain);
                 continue; // Move on to next field.
@@ -343,36 +343,33 @@ function setSubscriptions(record, datain) {
     if (count == 0)
         return; // No subscriptions to set.
 
-    // Get the subscription names/internal ids.
-    var subscriptionNameMap = JSON.parse(JSON.stringify(record))[subscriptionsFieldName].map(function(i) { return i.subscription });
+    // Get the subscription internal ids and names.
+    var subscriptionIdNameMap = JSON.parse(JSON.stringify(record))[subscriptionsFieldName]
+        .reduce(function (accumulator, currentValue) {
+            currentValue = currentValue.subscription;
+            accumulator[currentValue.internalid] = currentValue.name;
+            return accumulator;
+        }, {});
 
     for (var i = 1; i <= count; i++) {
         var subscriptionId = record.getLineItemValue(subscriptionsFieldName, 'subscription', i);
-        
-        // Find the subscription object.
-        var subscription = null;
-        for (var c = 0; c < subscriptionNameMap.length; c++) {
-            if (subscriptionNameMap[c].internalid === subscriptionId) {
-                subscription = subscriptionNameMap[c];
-                break;
-            }
-        }
-
-        if (subscription == null)
+        if (!subscriptionIdNameMap.hasOwnProperty(subscriptionId))
             continue;
-            
+
+        // Find the subscription name.
+        var subscriptionName = subscriptionIdNameMap[subscriptionId];
+
         // Find the datain that matches the subscription.
         var datainSubscription = null;
         for (var c = 0; c < datain.subscriptions.length; c++) {
-            // Find the subscription by ID or name, if ID provided name will be ignored.
-            if (datain.subscriptions[c].subscription.internalid) {
-                if (datain.subscriptions[c].subscription.internalid == subscription.internalid) {
-                    datainSubscription = datain.subscriptions[c];
-                    break;
-                }
+            // Find the subscription by ID or name. If ID provided name will be ignored.
+            if (datain.subscriptions[c].subscription.internalid != null &&
+                datain.subscriptions[c].subscription.internalid == subscriptionId) {
+                datainSubscription = datain.subscriptions[c];
+                break;
             }
-            else if (datain.subscriptions[c].subscription.name === subscription.name)
-            {
+            else if (datain.subscriptions[c].subscription.name != null &&
+                datain.subscriptions[c].subscription.name === subscriptionName) {
                 datainSubscription = datain.subscriptions[c];
                 break;
             }
