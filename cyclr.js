@@ -347,7 +347,7 @@ function setRecordFieldValue(record, fieldName, fieldValue) {
 
 // Sets field values in a subrecord.
 function setSubrecordValues(subrecord, sublistValue) {
-    if (typeof (sublistValue) === 'object') {
+    if (typeof sublistValue === 'object') {
         for (var fieldName in sublistValue) {
             setRecordFieldValue(subrecord, fieldName, sublistValue[fieldName])
         }
@@ -357,6 +357,7 @@ function setSubrecordValues(subrecord, sublistValue) {
     subrecord.commit();
 }
 
+// Sets subscriptions the record.
 function setSubscriptions(record, datain) {
     var count = record.getLineItemCount(subscriptionsFieldName);
     if (count == 0)

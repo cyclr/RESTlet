@@ -2,4 +2,4 @@
 NetSuite RESTlet
 
 ## TODO
-- Support subrecords
+- Support subrecords that are not in sublists
