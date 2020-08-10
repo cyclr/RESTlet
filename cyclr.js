@@ -248,9 +248,16 @@ function createSublist(record, sublistName, sublistFields) {
         var sublistValue = sublistFields[sublistField];
         var field = record.getLineItemField(sublistName, sublistField, 1);
         if (!field) {
-            throw nlapiCreateError('CYCLR_INVALID_SUBLIST_FIELD',
-                'Sublist name: ' + sublistName + '\tField name: ' + sublistField,
-                SUPPRESS_NOTIFICATION);
+            // Checks if the field is a subrecord and processes it if true.
+            try {
+                var subrecord = record.createCurrentLineItemSubrecord(sublistName, sublistField);
+            } catch (e) {
+                throw nlapiCreateError('CYCLR_INVALID_SUBLIST_FIELD',
+                    'Sublist name: ' + sublistName + '\tField name: ' + sublistField,
+                    SUPPRESS_NOTIFICATION);
+            }
+            setSubrecordValues(subrecord, sublistValue);
+            continue;
         }
 
         if (field.type === 'select') {
@@ -336,6 +343,18 @@ function setRecordFieldValue(record, fieldName, fieldValue) {
 
     var transformed = getRecordFieldValue(record, fieldName, fieldValue);
     record.setFieldValue(fieldName, transformed);
+}
+
+// Sets field values in a subrecord.
+function setSubrecordValues(subrecord, sublistValue) {
+    if (typeof (sublistValue) === 'object') {
+        for (var fieldName in sublistValue) {
+            setRecordFieldValue(subrecord, fieldName, sublistValue[fieldName])
+        }
+    } else {
+        setRecordFieldValue(subrecord, fieldName, sublistValue);
+    }
+    subrecord.commit();
 }
 
 function setSubscriptions(record, datain) {
