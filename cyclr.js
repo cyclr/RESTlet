@@ -242,15 +242,13 @@ function createSublist(record, sublistName, sublistFields) {
             // Checks if the field is a subrecord and processes it if true.
             try {
                 var subrecord = record.createCurrentLineItemSubrecord(sublistName, sublistField);
-                if (subrecord) {
-                    setSubrecordValues(subrecord, sublistValue);
-                    continue;
-                }
             } catch (e) {
                 throw nlapiCreateError('CYCLR_INVALID_SUBLIST_FIELD',
                     'Sublist name: ' + sublistName + '\tField name: ' + sublistField,
                     SUPPRESS_NOTIFICATION);
             }
+            setSubrecordValues(subrecord, sublistValue);
+            continue;
         }
 
         if (field.type === 'select') {
