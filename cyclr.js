@@ -357,7 +357,7 @@ function setSubrecordValues(subrecord, sublistValue) {
     subrecord.commit();
 }
 
-// Sets subscriptions the record.
+// Sets subscriptions in the record.
 function setSubscriptions(record, datain) {
     var count = record.getLineItemCount(subscriptionsFieldName);
     if (count == 0)
