@@ -136,7 +136,15 @@ function transformRecord(record) {
         if (!field)
             continue;
 
-        if (field.type === 'date') {
+        if (field.type === 'integer') {
+            // SuiteScript 1.0 serialise integers larger than 32 bits to 0.
+            // Fix: manually set the value.
+            var integerValue = record.getFieldValue(fields[i]);
+            if (integerValue == null)
+                continue;
+            transformed[fields[i]] = integerValue;
+        }
+        else if (field.type === 'date') {
             // Convert account date to ISO date.
             var date = record.getDateTimeValue(fields[i]);
             if (!date)
@@ -167,7 +175,17 @@ function transformRecord(record) {
             if (!field)
                 continue;
 
-            if (field.type === 'date') {
+            if (field.type === 'integer') {
+                for (var k = 1; k <= transformedLineItem.length; k++) {
+                    // SuiteScript 1.0 serialise integers larger than 32 bits to 0.
+                    // Fix: manually set the value.
+                    var integerValue = record.getLineItemValue(lineItems[i], lineItemFields[j], k);
+                    if (integerValue == null)
+                        continue;
+                    transformedLineItem[k - 1][lineItemFields[j]] = integerValue;
+                }
+            }
+            else if (field.type === 'date') {
                 for (var k = 1; k <= transformedLineItem.length; k++) {
                     // Convert account date to ISO date.
                     var date = record.getLineItemDateTimeValue(lineItems[i], lineItemFields[j], k);
