@@ -223,8 +223,14 @@ function setRecord(record, datain) {
             continue;
 
         var fieldValue = datain[fieldName];
+        var field = record.getField(fieldName);
+        if (!field) {
+            throw nlapiCreateError('CYCLR_INVALID_FIELD',
+                'Field name: ' + fieldName,
+                SUPPRESS_NOTIFICATION);
+        }
 
-        if (lineItems.indexOf(fieldName) > -1) {
+        if (lineItems.indexOf(fieldName) > -1 && field.type !== 'select' && field.type !== 'multiselect') {
             // Update the subscriptions.
             if (fieldName === subscriptionsFieldName) {
                 setSubscriptions(record, datain);
