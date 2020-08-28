@@ -223,8 +223,9 @@ function setRecord(record, datain) {
             continue;
 
         var fieldValue = datain[fieldName];
+        var field = record.getField(fieldName);
 
-        if (lineItems.indexOf(fieldName) > -1) {
+        if (!field && lineItems.indexOf(fieldName) > -1) {
             // Update the subscriptions.
             if (fieldName === subscriptionsFieldName) {
                 setSubscriptions(record, datain);
