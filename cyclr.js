@@ -42,13 +42,21 @@ function getRecord(datain) {
 
 // POST function.
 function createRecord(datain) {
-    var record = nlapiCreateRecord(datain.recordtype);
-    return setRecord(record, datain);
+    if (datain.cmd == 'attach') {
+        nlapiAttachRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.destinationId, datain.options); 
+    } else {
+        var record = nlapiCreateRecord(datain.recordtype);
+        return setRecord(record, datain);
+    }
 }
 
 // DELETE function.
 function deleteRecord(datain) {
-    nlapiDeleteRecord(datain.recordtype, datain.id);
+    if (datain.cmd == 'detach') {
+        nlapiDetachRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.destinationId, datain.options);
+    } else {
+        nlapiDeleteRecord(datain.recordtype, datain.id);
+    }
 }
 
 // PUT function.
