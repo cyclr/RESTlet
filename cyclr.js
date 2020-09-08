@@ -20,20 +20,35 @@ function getRecord(datain) {
     if (datain.page != null)
         page = datain.page;
 
-    var filters = null;
-    var columns = null;
-    if (datain.filter_field_1 != null) {
-        filters = buildFilters(datain);
-        columns = buildColumns(datain);
+    var searchResult = null;
+    var resultStart = (page - 1) * PAGE_SIZE;
+    var resultLength = 0;
+    if (datain.searchid) {
+        // Run saved search.
+        var savedSearch = nlapiLoadSearch(datain.recordtype, datain.searchid);
+        var resultset = savedSearch.runSearch();
+        searchResult = resultset.getResults(resultStart, page * PAGE_SIZE);
+        if (searchResult != null) {
+            resultStart = 0; // searchResult only contains page of items, reset start to 0 for iteration below.
+            resultLength = searchResult.length;
+        }
+    } else {
+        // Run record search
+        var filters = null;
+        var columns = null;
+        if (datain.filter_field_1 != null) {
+            filters = buildFilters(datain);
+            columns = buildColumns(datain);
+        }
+        searchResult = nlapiSearchRecord(datain.recordtype, null, filters, columns);
+        if (searchResult != null)
+            resultLength = Math.min((page * PAGE_SIZE), searchResult.length);
     }
 
-    var ids = nlapiSearchRecord(datain.recordtype, null, filters, columns);
-    if (!ids)
-        return [];
-
     var result = [];
-    for (var i = ((page - 1) * PAGE_SIZE); i < Math.min((page * PAGE_SIZE), ids.length); i++) {
-        var record = nlapiLoadRecord(ids[i].getRecordType(), ids[i].getId());
+    for (var i = resultStart; i < resultLength; i++)
+    {
+        var record = nlapiLoadRecord(searchResult[i].getRecordType(), searchResult[i].getId());
         transformed = transformRecord(record);
         result.push(transformed);
     }
