@@ -3,7 +3,7 @@ const SUPPRESS_NOTIFICATION = false;
 
 // Number of records to get for each page.
 // Warning: this must be the same as the page size set in the NetSuite connector.
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 100;
 
 // Field name for subscriptions.
 const subscriptionsFieldName = 'subscriptions';
