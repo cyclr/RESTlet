@@ -57,11 +57,18 @@ function getRecord(datain) {
 
 // POST function.
 function createRecord(datain) {
-    if (datain.cmd == 'attach') {
-        nlapiAttachRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.destinationId, datain.options); 
-    } else {
-        var record = nlapiCreateRecord(datain.recordtype);
-        return setRecord(record, datain);
+    switch (datain.cmd) {
+        case 'attach':
+            nlapiAttachRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.destinationId, datain.options);
+            break;
+
+        case 'transform':
+            nlapiTransformRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.options);
+            break;
+
+        default:
+            var record = nlapiCreateRecord(datain.recordtype);
+            return setRecord(record, datain);
     }
 }
 
