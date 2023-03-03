@@ -63,8 +63,8 @@ function createRecord(datain) {
             break;
 
         case 'transform':
-            nlapiTransformRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.options);
-            break;
+            var record = nlapiTransformRecord(datain.sourceType, datain.sourceId, datain.destinationType, datain.options);
+            return setRecord(record);
 
         default:
             var record = nlapiCreateRecord(datain.recordtype);
